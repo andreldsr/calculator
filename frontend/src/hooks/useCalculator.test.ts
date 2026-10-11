@@ -120,7 +120,10 @@ describe('useCalculator transitions', () => {
     { keys: '1.2.3', display: '1.23' },
     { keys: '.', display: '0.' },
     { keys: '0.05', display: '0.05' },
-    { keys: '12345678901234567', display: '1234567890123456' },
+    // Capped at 15 digits, the most a double holds exactly.
+    { keys: '1234567890123456', display: '123456789012345' },
+    { keys: '0.12345678901234567', display: '0.12345678901234' },
+    { keys: '1.2345678901234 ±', display: '-1.2345678901234' },
     // sign
     { keys: '±', display: '0' },
     { keys: '5 ±', display: '-5' },
@@ -202,6 +205,11 @@ describe('useCalculator backend calls', () => {
         { operation: 'add', a: 0.1, b: 0.2 },
         { operation: 'add', a: 0.3, b: 1 },
       ],
+    },
+    {
+      // The longest entry is sent exactly as typed.
+      keys: '999999999999999 + 1 =',
+      calls: [{ operation: 'add', a: 999999999999999, b: 1 }],
     },
     { keys: '16 √', calls: [{ operation: 'sqrt', a: 16 }] },
     { keys: '50 %', calls: [{ operation: 'percentage', a: 50, b: 1 }] },

@@ -10,7 +10,8 @@ import type {
 } from '../types/calculator'
 
 const HISTORY_LIMIT = 10
-const MAX_ENTRY_DIGITS = 16
+// Doubles hold 15 significant digits exactly; longer entries would change when sent.
+const MAX_ENTRY_DIGITS = 15
 const UNEXPECTED_ERROR = 'Something went wrong. Please try again.'
 
 // What the entry on the display currently is:
