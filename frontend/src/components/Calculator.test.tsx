@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Calculator } from './Calculator'
@@ -89,18 +89,37 @@ describe('Calculator', () => {
     await waitFor(() => expect(display()).toHaveTextContent('25'))
   })
 
-  it('treats Enter on a focused key as equals, not a click', async () => {
+  it('lets Enter activate the focused key instead of pressing equals', async () => {
+    render(<Calculator />)
+    await clickAll(['2', 'plus', '3'])
+    screen.getByRole('button', { name: 'all clear' }).focus()
+
+    await userEvent.keyboard('{Enter}')
+
+    expect(display()).toHaveTextContent('0')
+    expect(calculateMock).not.toHaveBeenCalled()
+  })
+
+  it('activates a focused digit once on Enter', async () => {
     render(<Calculator />)
     await clickAll(['2', 'plus', '3'])
     expect(screen.getByRole('button', { name: '3' })).toHaveFocus()
 
     await userEvent.keyboard('{Enter}')
 
-    await waitFor(() => expect(display()).toHaveTextContent('5'))
-    expect(calculateMock).toHaveBeenCalledExactlyOnceWith(
-      { operation: 'add', a: 2, b: 3 },
-      expect.any(AbortSignal),
-    )
+    expect(display()).toHaveTextContent('33')
+    expect(calculateMock).not.toHaveBeenCalled()
+  })
+
+  it('prevents the default action of handled keys, except Enter on a button', () => {
+    render(<Calculator />)
+    const button = screen.getByRole('button', { name: '7' })
+
+    // fireEvent returns false when the default action was prevented.
+    expect(fireEvent.keyDown(document.body, { key: '/' })).toBe(false)
+    expect(fireEvent.keyDown(document.body, { key: 'Enter' })).toBe(false)
+    expect(fireEvent.keyDown(button, { key: 'Enter' })).toBe(true)
+    expect(fireEvent.keyDown(document.body, { key: 'a' })).toBe(true)
   })
 
   it('leaves browser shortcuts alone', async () => {

@@ -11,9 +11,10 @@ export function Calculator() {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      // Enter on a focused button activates that button, as browsers normally do.
+      if (event.key === 'Enter' && event.target instanceof HTMLButtonElement) return
       const key = keyToCalculatorKey(event)
       if (!key) return
-      // Also stops Enter on a focused key from clicking it as well as pressing =.
       event.preventDefault()
       press(key)
     }
