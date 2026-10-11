@@ -10,7 +10,7 @@ Requirements and API contract: @TASK_SPEC.md — that file is the source of trut
 | Backend tests | `cd backend && go test -race -cover ./...` |
 | Backend lint | `cd backend && gofmt -l . && go vet ./...` |
 | Frontend tests | `cd frontend && npm test -- --run` |
-| Frontend typecheck | `cd frontend && npx tsc --noEmit` |
+| Frontend typecheck | `cd frontend && npx tsc -b --noEmit` |
 | Frontend lint | `cd frontend && npm run lint` |
 | Frontend build | `cd frontend && npm run build` |
 | Everything | `make test` |
