@@ -46,8 +46,12 @@ var operations = map[Operation]func(a, b float64) (float64, error){
 		return math.Sqrt(a), nil
 	},
 	OpPercentage: func(a, b float64) (float64, error) {
-		// Divide first so large-but-representable results don't overflow
-		// in an intermediate a*b.
+		// Multiplying first keeps common cases exact (7% of 100 is 7, not
+		// 7.000000000000001); dividing first is the fallback when the
+		// intermediate a*b overflows but the result is representable.
+		if p := a * b; !math.IsInf(p, 0) {
+			return p / 100, nil
+		}
 		return a / 100 * b, nil
 	},
 }
@@ -80,6 +84,9 @@ func Calculate(op Operation, a, b float64) (float64, error) {
 	}
 	if !isFinite(result) {
 		return 0, ErrNonFiniteResult
+	}
+	if result == 0 {
+		return 0, nil // normalize -0, which JSON would encode as "-0"
 	}
 	return result, nil
 }

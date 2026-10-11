@@ -170,6 +170,13 @@ func TestCalculate_Percentage(t *testing.T) {
 		{name: "percent of negative", op: OpPercentage, a: 50, b: -200, want: -100},
 		{name: "fractional percent", op: OpPercentage, a: 12.5, b: 80, want: 10},
 		{name: "inexact percent within tolerance", op: OpPercentage, a: 15, b: 19.99, want: 2.9985, approx: true},
+		// a/100 is not exactly representable for these, so dividing first
+		// would give e.g. 7.000000000000001.
+		{name: "7 percent of 100 is exact", op: OpPercentage, a: 7, b: 100, want: 7},
+		{name: "29 percent of 100 is exact", op: OpPercentage, a: 29, b: 100, want: 29},
+		{name: "57 percent of 100 is exact", op: OpPercentage, a: 57, b: 100, want: 57},
+		{name: "7 percent of 300 is exact", op: OpPercentage, a: 7, b: 300, want: 21},
+		{name: "a*b overflows but result is finite", op: OpPercentage, a: 1e300, b: 1e10, want: 1e308, approx: true},
 		{name: "large but finite", op: OpPercentage, a: 200, b: 1e307, want: 2e307, approx: true},
 		{name: "overflow to +Inf", op: OpPercentage, a: math.MaxFloat64, b: math.MaxFloat64, wantErr: ErrNonFiniteResult},
 		{name: "overflow to -Inf", op: OpPercentage, a: -math.MaxFloat64, b: math.MaxFloat64, wantErr: ErrNonFiniteResult},
@@ -223,6 +230,37 @@ func TestCalculate_UnsupportedOperation(t *testing.T) {
 		{name: "caret symbol", op: "^", a: 1, b: 2, wantErr: ErrUnsupportedOperation},
 		{name: "percent symbol", op: "%", a: 1, b: 2, wantErr: ErrUnsupportedOperation},
 	})
+}
+
+// A zero result is always +0: -0 would be encoded as "-0" in JSON.
+// runCases can't catch this because -0 == 0, so the sign is checked here.
+func TestCalculate_ZeroResultIsPositive(t *testing.T) {
+	negZero := math.Copysign(0, -1)
+	tests := []struct {
+		name string
+		op   Operation
+		a, b float64
+	}{
+		{name: "add -0 + -0", op: OpAdd, a: negZero, b: negZero},
+		{name: "subtract -0 - 0", op: OpSubtract, a: negZero, b: 0},
+		{name: "multiply -1 * 0", op: OpMultiply, a: -1, b: 0},
+		{name: "multiply 0 * -5", op: OpMultiply, a: 0, b: -5},
+		{name: "divide 0 / -5", op: OpDivide, a: 0, b: -5},
+		{name: "power -0 ^ 3", op: OpPower, a: negZero, b: 3},
+		{name: "sqrt -0", op: OpSqrt, a: negZero},
+		{name: "percentage -5 percent of 0", op: OpPercentage, a: -5, b: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Calculate(tt.op, tt.a, tt.b)
+			if err != nil {
+				t.Fatalf("Calculate(%q, %v, %v) unexpected error: %v", tt.op, tt.a, tt.b, err)
+			}
+			if got != 0 || math.Signbit(got) {
+				t.Errorf("Calculate(%q, %v, %v) = %v (signbit %v), want +0", tt.op, tt.a, tt.b, got, math.Signbit(got))
+			}
+		})
+	}
 }
 
 // The division-by-zero message is part of the API contract in TASK_SPEC.md,
