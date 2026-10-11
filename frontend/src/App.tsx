@@ -1,8 +1,10 @@
-// Placeholder shell; the calculator UI is built in the frontend phase.
+import { Calculator } from './components/Calculator'
+
 function App() {
   return (
-    <main>
+    <main className="app">
       <h1>Sezzle Calculator</h1>
+      <Calculator />
     </main>
   )
 }
