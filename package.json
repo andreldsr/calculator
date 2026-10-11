@@ -2,8 +2,8 @@
   "name": "sezzle-calculator-root",
   "private": true,
   "scripts": {
-    "test:backend": "cmd /c \"if not exist .gotmp mkdir .gotmp & set GOTMPDIR=%CD%\\.gotmp& cd backend & go test -v ./...\"",
-    "test:frontend": "cd frontend && npx tsc --noEmit",
+    "test:backend": "(if not exist .gotmp mkdir .gotmp) & set GOTMPDIR=%CD%\\.gotmp&& cd backend && go test -v ./...",
+    "test:frontend": "cd frontend && npx tsc -b --noEmit && npm run lint && npm test -- --run",
     "test": "npm run test:backend && npm run test:frontend",
     "docker:up": "docker compose up --build"
   }
