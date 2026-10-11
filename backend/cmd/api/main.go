@@ -3,7 +3,7 @@ package main
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,8 +18,18 @@ import (
 const shutdownTimeout = 10 * time.Second
 
 func main() {
-	addr := ":" + envOr("PORT", "8080")
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	err := run(ctx, ":"+envOr("PORT", "8080"))
+	stop()
+	if err != nil {
+		log.Printf("server error: %v", err)
+		os.Exit(1)
+	}
+}
 
+// run serves on addr until ctx is cancelled, then shuts down gracefully.
+// It returns an error instead of exiting so deferred cleanup always runs.
+func run(ctx context.Context, addr string) error {
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           newMux(),
@@ -29,24 +39,27 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
+	// Buffered so the goroutine can exit even after run has returned.
+	serveErr := make(chan error, 1)
 	go func() {
 		log.Printf("listening on %s", addr)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server error: %v", err)
-		}
+		serveErr <- srv.ListenAndServe()
 	}()
 
-	<-ctx.Done()
-	log.Println("shutting down")
+	select {
+	case err := <-serveErr:
+		// ListenAndServe only returns before Shutdown on failure.
+		return fmt.Errorf("listen on %s: %w", addr, err)
+	case <-ctx.Done():
+	}
 
+	log.Println("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("graceful shutdown failed: %v", err)
+		return fmt.Errorf("graceful shutdown: %w", err)
 	}
+	return nil
 }
 
 // newMux wires all routes.

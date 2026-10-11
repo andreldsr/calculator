@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHealthz(t *testing.T) {
@@ -89,4 +92,42 @@ func TestCalculateRoute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRun(t *testing.T) {
+	t.Run("returns nil after graceful shutdown on cancel", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		errCh := make(chan error, 1)
+		go func() { errCh <- run(ctx, "127.0.0.1:0") }()
+
+		cancel()
+		select {
+		case err := <-errCh:
+			if err != nil {
+				t.Fatalf("run() = %v, want nil", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("run() did not return after context cancel")
+		}
+	})
+
+	t.Run("returns listen error instead of exiting", func(t *testing.T) {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("reserve port: %v", err)
+		}
+		defer ln.Close()
+
+		errCh := make(chan error, 1)
+		go func() { errCh <- run(context.Background(), ln.Addr().String()) }()
+
+		select {
+		case err := <-errCh:
+			if err == nil {
+				t.Fatal("run() = nil, want error for an address already in use")
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("run() did not return for an address already in use")
+		}
+	})
 }
