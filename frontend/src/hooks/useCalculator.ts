@@ -224,10 +224,9 @@ export function useCalculator(): UseCalculator {
     const controller = new AbortController()
     calculate(request.request, controller.signal).then(
       (outcome) => dispatch({ type: 'resolve', id: request.id, outcome }),
-      () => {
-        if (controller.signal.aborted) return
-        dispatch({ type: 'resolve', id: request.id, outcome: { ok: false, error: UNEXPECTED_ERROR } })
-      },
+      // After AC the reducer drops this as stale, and after unmount dispatch is
+      // a no-op, so an abort rejection needs no special case here.
+      () => dispatch({ type: 'resolve', id: request.id, outcome: { ok: false, error: UNEXPECTED_ERROR } }),
     )
     return () => controller.abort()
   }, [request])

@@ -97,10 +97,12 @@ async function run(sequence: string) {
 
 function deferred() {
   let resolve: (outcome: CalculateOutcome) => void = () => {}
-  const promise = new Promise<CalculateOutcome>((r) => {
-    resolve = r
+  let reject: (err: unknown) => void = () => {}
+  const promise = new Promise<CalculateOutcome>((res, rej) => {
+    resolve = res
+    reject = rej
   })
-  return { promise, resolve }
+  return { promise, resolve, reject }
 }
 
 describe('useCalculator transitions', () => {
@@ -317,6 +319,20 @@ describe('useCalculator while a request is in flight', () => {
     await act(async () => pending.resolve({ ok: true, result: 5 }))
     expect(hook.result.current.display).toBe('0')
     expect(hook.result.current.history).toHaveLength(0)
+  })
+
+  it('ignores the abort rejection of a request cancelled by AC', async () => {
+    const pending = deferred()
+    calculateMock.mockReturnValueOnce(pending.promise)
+    const hook = renderHook(() => useCalculator())
+    await pressAll(hook, '16')
+    act(() => hook.result.current.press({ type: 'sqrt' }))
+    act(() => hook.result.current.press({ type: 'clear' }))
+
+    await act(async () => pending.reject(new DOMException('aborted', 'AbortError')))
+
+    expect(hook.result.current.error).toBeNull()
+    expect(hook.result.current.display).toBe('0')
   })
 
   it('aborts the request on unmount', async () => {
