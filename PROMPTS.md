@@ -258,8 +258,79 @@ Report findings ordered by severity with file:line, and say for each whether you
   - Tests cover graceful shutdown on cancel and an address already in use.
   - SIGTERM handling was checked with `docker stop`: the server logged "shutting down" and exited with code 0.
 
-## 10. Record the prompts
 
-> write all the prompts from history in PROMPTS.md
+## 10. Frontend design and implementation
 
-**Outcome:** this file.
+> Read @TASK_SPEC.md and the handler in @backend/internal/handler to confirm the exact request/response contract.
+>
+> Propose:
+> 1. TypeScript types mirroring the contract
+> 2. useCalculator: state shape, return type, and every transition (digit, decimal, operator, equals, sqrt, percent, clear, backspace, error → next input clears it). Input model: immediate execution, left to right, one backend call per operation.
+> 3. Keypad layout and how unary ops (√, %) behave
+> 4. History: last 10 successful calculations, newest first, client-side
+> 5. Accessibility: keyboard input, aria-live on the display, labeled buttons
+
+**Clarifying questions answered:**
+- `%` is contextual. With an operator pending, `x%` is x percent of the left operand (`200 + 10 % =` → 220). Otherwise it is `x / 100`.
+- Add a local `±` key, so negative operands (and the negative-sqrt error) can be entered directly.
+
+**Outcome:** the plan was approved and implemented test-first, one commit per step:
+- `feat(frontend): add API contract types and calculate service`
+  - `calculate()` never throws for HTTP or network errors; it narrows the `unknown` body with type guards.
+  - Only an abort is rethrown.
+- `feat(frontend): add number formatting and keyboard mapping helpers`
+- `feat(frontend): add useCalculator hook with immediate-execution state machine`
+  - A pure reducer with entry modes `typing | result | awaiting`. A single `overwrite` flag couldn't tell "operator just pressed" apart from "unary result showing".
+  - The in-flight request lives in state and an effect sends it, so AC and unmount abort it.
+  - Every transition is covered by table-driven key-sequence tests.
+- `feat(frontend): add Display, Keypad and History components`
+- `feat(frontend): wire Calculator with keyboard input into App`
+- `style(frontend): add responsive calculator layout with focus and dark mode styles`
+
+## 11. Frontend review (code-reviewer subagent)
+
+> Its all working correctly on my local test. Use the code-reviewer subagent on the frontend changes
+
+The subagent got the commit range, the backend contract and the intentional design decisions. It was asked to focus on reducer edge cases, StrictMode, the CLAUDE.md guardrails, accessibility and weak tests.
+
+**Outcome:** no spec or guardrail violations, and all checks pass. Findings:
+- **Medium:** a chained operation uses the raw result (`0.30000000000000004`) where `=` uses the displayed value (`0.3`).
+- **Medium (a11y):** disabling the keypad while a request is in flight drops keyboard focus to `<body>`.
+- **Medium (test):** the "Enter on a focused key" test still passes without `preventDefault`, so it doesn't test what it claims.
+- **Low–medium (a11y):** Enter always means `=`, so it can never activate the focused button.
+- **Low:** the 16-digit entry cap is beyond double precision; it should be 15.
+- **Low:** √ and % right after an operator act on the left operand, and no test covers this.
+- **Missing tests:**
+  - the hook→service seam, tested with a stubbed `fetch`;
+  - operator → ± → ⌫.
+
+## 12. Apply the frontend review fixes
+
+> Lets to all the fixes, update tests that needed
+
+**Outcome:** each fix was done test-first: the test was written or updated, seen failing, then the fix applied. Commits:
+- `fix(frontend): chain operations on the displayed result`
+  - The chained operand is now `Number(formatResult(result))`.
+  - Test: `0.1 + 0.2 + 1 =` sends `add(0.3, 1)`.
+- `fix(frontend): cap entry at 15 digits so typed values are sent exactly`
+  - The old 16-digit expectation was changed to 15.
+  - New test: a 15-digit entry is sent unchanged.
+- `fix(frontend): use aria-disabled on keys so focus survives a calculation`
+  - The Keypad ignores clicks on inactive keys, and the CSS selectors now target `[aria-disabled='true']`.
+  - A planned "keeps focus" test was dropped: jsdom never moves focus off disabled buttons, so that test could never fail.
+- `fix(frontend): let Enter activate the focused key instead of always pressing equals`
+  - The old Enter test was replaced, because it encoded the old behaviour and passed without `preventDefault`.
+  - The new `fireEvent` return-value test was checked by deleting `preventDefault`: it failed as intended.
+- `fix(frontend): detect aborts by name rather than DOMException instance`
+- `test(frontend): cover unary keys after an operator, sign-then-backspace and the service seam`
+  - A new `Calculator.integration.test.tsx` runs the real service against a stubbed `fetch`.
+  - It was checked by temporarily breaking the endpoint URL: it failed as intended.
+
+## 13. Add coverage tooling and commit pending files
+
+> Please add the coverage tool and then commit the files
+
+**Outcome:**
+- Added `@vitest/coverage-v8@5.0.3` as a dev dependency, pinned to the installed vitest version, which it requires as a peer.
+- `npm run test:coverage` gives 98.7% statements, 98.5% branches, and 100% of functions and lines for `hooks/` and `services/`.
+- The pending root `package.json`, `CLAUDE.md` and `PROMPTS.md` edits were committed separately.
