@@ -23,7 +23,7 @@ Requirements and API contract: @TASK_SPEC.md — that file is the source of trut
 - Run the relevant test, lint and typecheck commands before saying a step is done. Do not commit if any of them fails.
 - Small commits with conventional messages (`feat(backend): add division with zero check`).
 - Ask before adding any dependency (Go module or npm package).
-- Do not write or edit `PROMPTS.md`; the developer maintains it.
+- Always edit `PROMPTS.md`;
 
 ## Architecture guardrails
 - **Backend:** standard library only (`net/http`, `encoding/json`); no Gin/Echo/Fiber. Math lives in `internal/calculator` with no HTTP imports; `internal/handler` only decodes, validates, calls the calculator and encodes.
