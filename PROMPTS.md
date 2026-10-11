@@ -412,3 +412,17 @@ Two changes came out of verification:
   - Backend: gofmt and go vet are clean. `go test` passes, with `internal/calculator` at 100% and `internal/handler` at 98.2%. `-race` passes in the Docker test stage, forced with `--no-cache-filter`.
   - Frontend: tsc, ESLint and the build are clean, and 206 tests pass.
   - Docker: the compose stack is healthy, and the UI and `/api` proxy work.
+
+## 17. Fix the typecheck command and root npm scripts
+
+> Lets fix points 1 and 2.
+
+**Outcome:**
+- `docs: use project-aware typecheck command in CLAUDE.md`
+  - Proven first with a scratch file holding a deliberate type error: `tsc --noEmit` exited 0, and `tsc -b --noEmit` exited 2. The scratch file was then removed.
+- `fix: make root npm test scripts actually run the tests`
+  - **`test:frontend`:** now runs typecheck, lint and tests instead of the no-op typecheck.
+  - **`test:backend` never ran the Go tests:**
+    - In `cmd.exe`, `if not exist .gotmp mkdir .gotmp & ... & go test` makes the whole `&` chain the body of the `if`. Once `.gotmp` existed, the script did nothing and exited 0.
+    - Fixed with `(if ...)` and `&&`, and verified with and without `.gotmp`.
+  - **The Go tests now run, and they show a host problem:** Windows Application Control intermittently blocks freshly built Go test binaries, even in `.gotmp` and from Git Bash. This is a machine policy, not a test failure. The backend suite was verified in the Docker test stage instead, and it passes with `-race`.
