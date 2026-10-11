@@ -195,6 +195,14 @@ describe('useCalculator backend calls', () => {
         { operation: 'multiply', a: 5, b: 4 },
       ],
     },
+    {
+      // The chained operand is the displayed 0.3, not 0.30000000000000004.
+      keys: '0.1 + 0.2 + 1 =',
+      calls: [
+        { operation: 'add', a: 0.1, b: 0.2 },
+        { operation: 'add', a: 0.3, b: 1 },
+      ],
+    },
     { keys: '16 √', calls: [{ operation: 'sqrt', a: 16 }] },
     { keys: '50 %', calls: [{ operation: 'percentage', a: 50, b: 1 }] },
     {

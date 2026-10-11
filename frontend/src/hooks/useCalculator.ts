@@ -164,9 +164,11 @@ function resolve(state: CalculatorState, { request, then, id }: InFlightRequest,
     ...(request.b === undefined ? {} : { b: request.b }),
     result,
   }
+  // Later operations use the value the user sees, as `=` does via the entry.
+  const shown = formatResult(result)
   const succeeded: CalculatorState = {
     ...done,
-    entry: formatResult(result),
+    entry: shown,
     mode: 'result',
     history: [entry, ...state.history].slice(0, HISTORY_LIMIT),
   }
@@ -174,7 +176,7 @@ function resolve(state: CalculatorState, { request, then, id }: InFlightRequest,
 
   switch (then.kind) {
     case 'chain': {
-      const next = { operator: then.operator, operand: result }
+      const next = { operator: then.operator, operand: Number(shown) }
       return { ...succeeded, pending: next, mode: 'awaiting', expression: pendingExpression(next) }
     }
     case 'equals':
