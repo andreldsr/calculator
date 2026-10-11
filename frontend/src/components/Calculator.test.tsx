@@ -100,15 +100,25 @@ describe('Calculator', () => {
     expect(calculateMock).not.toHaveBeenCalled()
   })
 
-  it('activates a focused digit once on Enter', async () => {
+  it('activates a keyboard-focused digit once on Enter', async () => {
     render(<Calculator />)
     await clickAll(['2', 'plus', '3'])
-    expect(screen.getByRole('button', { name: '3' })).toHaveFocus()
+    screen.getByRole('button', { name: '3' }).focus()
 
     await userEvent.keyboard('{Enter}')
 
     expect(display()).toHaveTextContent('33')
     expect(calculateMock).not.toHaveBeenCalled()
+  })
+
+  it('does not focus keys on mouse click, so Enter afterwards means equals', async () => {
+    render(<Calculator />)
+
+    await clickAll(['2', 'plus', '3'])
+    expect(screen.getByRole('button', { name: '3' })).not.toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => expect(display()).toHaveTextContent('5'))
   })
 
   it('prevents the default action of handled keys, except Enter on a button', () => {

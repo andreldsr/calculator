@@ -69,6 +69,10 @@ export function Keypad({ onPress, activeOperator, disabled }: KeypadProps) {
             aria-label={ariaLabel}
             aria-pressed={key.type === 'operator' ? key.operator === activeOperator : undefined}
             aria-disabled={inactive}
+            // Mouse clicks don't take focus (Chrome and Firefox would), so a
+            // following Enter means = rather than repeating the clicked key.
+            // Tab focus is unaffected.
+            onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               if (!inactive) onPress(key)
             }}
