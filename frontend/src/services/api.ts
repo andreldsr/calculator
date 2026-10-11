@@ -19,8 +19,10 @@ function isFailure(body: unknown): body is CalculateFailure {
   return isRecord(body) && typeof body.error === 'string'
 }
 
+// Checks the name rather than instanceof DOMException, which fails for aborts
+// from polyfills or other realms.
 function isAbort(err: unknown): boolean {
-  return err instanceof DOMException && err.name === 'AbortError'
+  return isRecord(err) && err.name === 'AbortError'
 }
 
 // calculate sends one operation to the backend. HTTP and network failures

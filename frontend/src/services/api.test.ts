@@ -115,4 +115,12 @@ describe('calculate', () => {
 
     await expect(calculate({ operation: 'add', a: 1, b: 2 })).rejects.toBe(abort)
   })
+
+  it('recognizes an abort that is not a DOMException', async () => {
+    // e.g. from a fetch polyfill or another realm.
+    const abort = Object.assign(new Error('aborted'), { name: 'AbortError' })
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abort))
+
+    await expect(calculate({ operation: 'add', a: 1, b: 2 })).rejects.toBe(abort)
+  })
 })
