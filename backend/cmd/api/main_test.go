@@ -131,3 +131,82 @@ func TestRun(t *testing.T) {
 		}
 	})
 }
+
+func TestCheckHealth(t *testing.T) {
+	tests := []struct {
+		name    string
+		handler http.HandlerFunc
+		wantErr bool
+	}{
+		{
+			name:    "real healthz is healthy",
+			handler: newMux().ServeHTTP,
+		},
+		{
+			name:    "500 is unhealthy",
+			handler: func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusInternalServerError) },
+			wantErr: true,
+		},
+		{
+			name:    "404 is unhealthy",
+			handler: http.NotFound,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(tt.handler)
+			defer srv.Close()
+
+			err := checkHealth(context.Background(), srv.URL+"/healthz")
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("checkHealth() = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+
+	t.Run("unreachable server is unhealthy", func(t *testing.T) {
+		srv := httptest.NewServer(http.NotFoundHandler())
+		url := srv.URL + "/healthz"
+		srv.Close()
+
+		if err := checkHealth(context.Background(), url); err == nil {
+			t.Fatal("checkHealth() = nil, want error for a closed server")
+		}
+	})
+
+	t.Run("slow server times out", func(t *testing.T) {
+		release := make(chan struct{})
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			<-release
+		}))
+		defer srv.Close()
+		defer close(release)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		if err := checkHealth(ctx, srv.URL+"/healthz"); err == nil {
+			t.Fatal("checkHealth() = nil, want error when the context times out")
+		}
+	})
+}
+
+func TestHealthcheckURL(t *testing.T) {
+	tests := []struct {
+		port string
+		want string
+	}{
+		{port: "", want: "http://127.0.0.1:8080/healthz"},
+		{port: "9090", want: "http://127.0.0.1:9090/healthz"},
+	}
+
+	for _, tt := range tests {
+		t.Run("PORT="+tt.port, func(t *testing.T) {
+			t.Setenv("PORT", tt.port)
+			if got := healthcheckURL(); got != tt.want {
+				t.Errorf("healthcheckURL() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

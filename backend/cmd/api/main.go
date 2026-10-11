@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,11 +16,30 @@ import (
 	"github.com/andre/sezzle-calculator/backend/internal/handler"
 )
 
-const shutdownTimeout = 10 * time.Second
+const (
+	shutdownTimeout    = 10 * time.Second
+	healthcheckTimeout = 3 * time.Second
+)
 
 func main() {
+	healthcheck := flag.Bool("healthcheck", false,
+		"check GET /healthz on the local server and exit 0 if healthy, 1 otherwise")
+	flag.Parse()
+
+	// The runtime image has no shell or curl, so the binary checks itself.
+	if *healthcheck {
+		ctx, cancel := context.WithTimeout(context.Background(), healthcheckTimeout)
+		err := checkHealth(ctx, healthcheckURL())
+		cancel()
+		if err != nil {
+			log.Printf("unhealthy: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	err := run(ctx, ":"+envOr("PORT", "8080"))
+	err := run(ctx, ":"+port())
 	stop()
 	if err != nil {
 		log.Printf("server error: %v", err)
@@ -74,6 +94,31 @@ func newMux() *http.ServeMux {
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
+// checkHealth reports whether GET url answers 200 before ctx is done.
+func checkHealth(ctx context.Context, url string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("GET %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
+	}
+	return nil
+}
+
+func healthcheckURL() string {
+	return "http://127.0.0.1:" + port() + "/healthz"
+}
+
+func port() string {
+	return envOr("PORT", "8080")
 }
 
 func envOr(key, fallback string) string {
