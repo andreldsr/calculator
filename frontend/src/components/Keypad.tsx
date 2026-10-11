@@ -50,7 +50,8 @@ const KEYS: readonly KeyDef[] = [
 interface KeypadProps {
   onPress: (key: CalculatorKey) => void
   activeOperator: BinaryOperation | null
-  // While a request is in flight only AC stays enabled.
+  // While a request is in flight only AC stays enabled. Keys use aria-disabled
+  // rather than disabled, which would drop focus from the key just pressed.
   disabled: boolean
 }
 
@@ -59,6 +60,7 @@ export function Keypad({ onPress, activeOperator, disabled }: KeypadProps) {
     <div className="keypad" role="group" aria-label="Keypad">
       {KEYS.map(({ label, ariaLabel, key, variant, wide }) => {
         const classes = ['key', variant && `key--${variant}`, wide && 'key--wide']
+        const inactive = disabled && key.type !== 'clear'
         return (
           <button
             key={label}
@@ -66,8 +68,10 @@ export function Keypad({ onPress, activeOperator, disabled }: KeypadProps) {
             className={classes.filter(Boolean).join(' ')}
             aria-label={ariaLabel}
             aria-pressed={key.type === 'operator' ? key.operator === activeOperator : undefined}
-            disabled={disabled && key.type !== 'clear'}
-            onClick={() => onPress(key)}
+            aria-disabled={inactive}
+            onClick={() => {
+              if (!inactive) onPress(key)
+            }}
           >
             {label}
           </button>

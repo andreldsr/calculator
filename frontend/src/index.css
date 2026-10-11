@@ -136,11 +136,11 @@ body {
   touch-action: manipulation;
 }
 
-.key:hover:not(:disabled) {
+.key:hover:not([aria-disabled='true']) {
   background: var(--key-hover);
 }
 
-.key:active:not(:disabled) {
+.key:active:not([aria-disabled='true']) {
   transform: scale(0.97);
 }
 
@@ -149,7 +149,7 @@ body {
   outline-offset: 2px;
 }
 
-.key:disabled {
+.key[aria-disabled='true'] {
   cursor: progress;
   opacity: 0.6;
 }
@@ -174,7 +174,7 @@ body {
   font-weight: 600;
 }
 
-.key--equals:hover:not(:disabled) {
+.key--equals:hover:not([aria-disabled='true']) {
   background: var(--accent);
   filter: brightness(1.1);
 }
@@ -212,7 +212,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .key:active:not(:disabled) {
+  .key:active:not([aria-disabled='true']) {
     transform: none;
   }
 }

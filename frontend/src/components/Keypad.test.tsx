@@ -63,14 +63,33 @@ describe('Keypad', () => {
     expect(screen.getByRole('button', { name: '7' })).not.toHaveAttribute('aria-pressed')
   })
 
-  it('disables every key except all clear', async () => {
-    const onPress = renderKeypad(null, true)
+  it('marks every key except all clear as aria-disabled, keeping them focusable', () => {
+    renderKeypad(null, true)
 
     for (const button of screen.getAllByRole('button')) {
       const isClear = button.getAttribute('aria-label') === 'all clear'
-      expect(button).toHaveProperty('disabled', !isClear)
+      // A real `disabled` would drop focus from the key the user just pressed.
+      expect(button).not.toBeDisabled()
+      expect(button).toHaveAttribute('aria-disabled', String(!isClear))
     }
+  })
+
+  it('ignores clicks on aria-disabled keys but still accepts all clear', async () => {
+    const onPress = renderKeypad(null, true)
+
+    await userEvent.click(screen.getByRole('button', { name: '7' }))
+    await userEvent.click(screen.getByRole('button', { name: 'equals' }))
+    expect(onPress).not.toHaveBeenCalled()
+
     await userEvent.click(screen.getByRole('button', { name: 'all clear' }))
     expect(onPress).toHaveBeenCalledExactlyOnceWith({ type: 'clear' })
+  })
+
+  it('is not aria-disabled when enabled', () => {
+    renderKeypad()
+
+    for (const button of screen.getAllByRole('button')) {
+      expect(button).toHaveAttribute('aria-disabled', 'false')
+    }
   })
 })
