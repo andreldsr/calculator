@@ -166,6 +166,15 @@ describe('useCalculator transitions', () => {
     { keys: '200 + 10 %', display: '20', expression: '200 + 10% of 200', pendingOperator: 'add' },
     { keys: '200 + 10 % =', display: '220' },
     { keys: '200 + 10 % * 2 =', display: '440' },
+    // Right after an operator, √ and % act on the left operand still displayed.
+    { keys: '9 + √', display: '3', expression: '9 + √9', pendingOperator: 'add' },
+    { keys: '9 + √ =', display: '12' },
+    { keys: '200 + %', display: '400', expression: '200 + 200% of 200' },
+    { keys: '200 + % =', display: '600' },
+    // operator, then ±, starts a "-0" entry that backspace resets
+    { keys: '5 + ±', display: '-0', pendingOperator: 'add' },
+    { keys: '5 + ± ⌫', display: '0', pendingOperator: 'add' },
+    { keys: '5 + ± ⌫ 3 =', display: '8' },
     // clear
     { keys: '2 + 3 AC', display: '0', expression: '', pendingOperator: null },
     // errors, and the next key clearing them
@@ -212,6 +221,20 @@ describe('useCalculator backend calls', () => {
       calls: [{ operation: 'add', a: 999999999999999, b: 1 }],
     },
     { keys: '16 √', calls: [{ operation: 'sqrt', a: 16 }] },
+    {
+      keys: '9 + √ =',
+      calls: [
+        { operation: 'sqrt', a: 9 },
+        { operation: 'add', a: 9, b: 3 },
+      ],
+    },
+    {
+      keys: '200 + % =',
+      calls: [
+        { operation: 'percentage', a: 200, b: 200 },
+        { operation: 'add', a: 200, b: 400 },
+      ],
+    },
     { keys: '50 %', calls: [{ operation: 'percentage', a: 50, b: 1 }] },
     {
       keys: '200 + 10 % =',
