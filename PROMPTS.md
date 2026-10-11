@@ -356,3 +356,36 @@ The subagent was asked to verify the first round of fixes, look for regressions,
   - Checked by deleting the rethrow: the test failed as intended.
 
 Final state: 206 tests, coverage of `hooks/` and `services/` at 100% statements, branches, functions and lines, and typecheck, lint and build clean.
+
+## 15. Docker multi-stage setup
+
+> So lets move to docker multi stage config
+
+A plan was proposed: a Go build stage, an optional `-race` test stage and a distroless runtime; a Node build stage and an unprivileged nginx runtime; an nginx `/api` proxy; compose. It came with one question, how to health-check a backend image that has no shell.
+
+> lets move with the -healthcheck flag approach so we have an easy way to check the service health
+
+**Outcome:**
+- `feat(backend): add -healthcheck flag for container health checks`
+  - `checkHealth(ctx, url)` and `healthcheckURL()` were written test-first: the real `/healthz`, 500, 404, an unreachable server, a timeout, and the `PORT` override.
+  - `/api -healthcheck` exits 0 or 1.
+- `feat(docker): add multi-stage Dockerfiles, nginx proxy and compose`
+  - **Backend:** `golang:1.27` builds the binary, an optional `test` stage runs `go test -race`, and the runtime is `distroless/static:nonroot`. The image is 16.5 MB, with a `HEALTHCHECK` that uses the flag.
+  - **Frontend:** `node:24-alpine` runs `npm ci` and the build, and `nginx-unprivileged:1.30-alpine` serves it as uid 101 on port 8080.
+  - **nginx:** proxies `/api/` with the path unchanged and returns JSON envelopes for its own 413 and 502/503/504 errors. It re-resolves `backend` through Docker DNS, sends `no-cache` for `index.html`, caches hashed assets as immutable, falls back to the app for client-side routes, uses gzip, and sets `server_tokens off`.
+  - **Compose:** the backend is on `8080:8080`, the frontend on `3000:8080`, and the frontend waits for `service_healthy`.
+- `build: add make target for race tests in Docker`
+
+**Verified** with the stack on ports 18080/13000 through a scratch override file, because the developer's own dev servers were using 8080 and 3000:
+- **API:** 200, 400 (divide by zero, negative sqrt, invalid body) and 405 all match, both directly and through the proxy.
+- **Body limit:** a 1.1 MB body gets a JSON 413 at both layers.
+- **Backend down:** returns a JSON 503.
+- **Backend recreated:** after being forced onto a new IP, the proxy still reaches it.
+- **Health:** the health check works, and with a wrong `PORT` the flag exits 1.
+- **Users:** both containers run as non-root.
+- **Shutdown:** a SIGTERM stop logs "shutting down" and exits 0.
+- **Tests:** `docker build --target test backend` passes with `-race`.
+
+Two changes came out of verification:
+- the JSON error pages, because nginx's own 413 was an HTML page;
+- the DNS re-resolution, because nginx caches the backend IP from startup.
