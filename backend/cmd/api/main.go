@@ -10,6 +10,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/andre/sezzle-calculator/backend/internal/calculator"
+	"github.com/andre/sezzle-calculator/backend/internal/handler"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -46,10 +49,12 @@ func main() {
 	}
 }
 
-// newMux wires all routes. Calculator routes are added in a later phase.
+// newMux wires all routes.
 func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthz)
+	// No method in the pattern: the handler answers 405 with a JSON body.
+	mux.Handle("/api/v1/calculate", handler.New(calculator.Calculate))
 	return mux
 }
 

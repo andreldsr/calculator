@@ -28,42 +28,56 @@ var (
 	ErrNonFiniteResult      = errors.New("result is not a finite number")
 )
 
-// Calculate applies op to a and b. For OpSqrt only a is used.
-// Operands must be finite, and a result that would be ±Inf or NaN is
-// reported as ErrNonFiniteResult. On error the result is always 0.
-func Calculate(op Operation, a, b float64) (float64, error) {
-	if !isFinite(a) || (op != OpSqrt && !isFinite(b)) {
-		return 0, ErrInvalidOperand
-	}
-
-	var result float64
-	switch op {
-	case OpAdd:
-		result = a + b
-	case OpSubtract:
-		result = a - b
-	case OpMultiply:
-		result = a * b
-	case OpDivide:
+var operations = map[Operation]func(a, b float64) (float64, error){
+	OpAdd:      func(a, b float64) (float64, error) { return a + b, nil },
+	OpSubtract: func(a, b float64) (float64, error) { return a - b, nil },
+	OpMultiply: func(a, b float64) (float64, error) { return a * b, nil },
+	OpDivide: func(a, b float64) (float64, error) {
 		if b == 0 {
 			return 0, ErrDivisionByZero
 		}
-		result = a / b
-	case OpPower:
-		result = math.Pow(a, b)
-	case OpSqrt:
+		return a / b, nil
+	},
+	OpPower: func(a, b float64) (float64, error) { return math.Pow(a, b), nil },
+	OpSqrt: func(a, _ float64) (float64, error) {
 		if a < 0 {
 			return 0, ErrNegativeSqrt
 		}
-		result = math.Sqrt(a)
-	case OpPercentage:
+		return math.Sqrt(a), nil
+	},
+	OpPercentage: func(a, b float64) (float64, error) {
 		// Divide first so large-but-representable results don't overflow
 		// in an intermediate a*b.
-		result = a / 100 * b
-	default:
+		return a / 100 * b, nil
+	},
+}
+
+// Valid reports whether op is a supported operation.
+func (op Operation) Valid() bool {
+	_, ok := operations[op]
+	return ok
+}
+
+// Unary reports whether op uses only the a operand.
+func (op Operation) Unary() bool {
+	return op == OpSqrt
+}
+
+// Calculate applies op to a and b. For unary operations only a is used.
+// Operands must be finite, and a result that would be ±Inf or NaN is
+// reported as ErrNonFiniteResult. On error the result is always 0.
+func Calculate(op Operation, a, b float64) (float64, error) {
+	if !isFinite(a) || (!op.Unary() && !isFinite(b)) {
+		return 0, ErrInvalidOperand
+	}
+	if !op.Valid() {
 		return 0, ErrUnsupportedOperation
 	}
 
+	result, err := operations[op](a, b)
+	if err != nil {
+		return 0, err
+	}
 	if !isFinite(result) {
 		return 0, ErrNonFiniteResult
 	}
