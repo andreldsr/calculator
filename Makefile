@@ -1,4 +1,4 @@
-.PHONY: test test-backend test-frontend lint lint-backend lint-frontend typecheck build build-backend build-frontend coverage up down
+.PHONY: test test-backend test-backend-docker test-frontend lint lint-backend lint-frontend typecheck build build-backend build-frontend coverage up down
 
 BACKEND  := backend
 FRONTEND := frontend
@@ -8,6 +8,10 @@ test: lint-backend test-backend typecheck lint-frontend test-frontend
 
 test-backend:
 	cd $(BACKEND) && go test -race -cover ./...
+
+# Race-detector tests in the backend's Docker test stage, for hosts without cgo.
+test-backend-docker:
+	docker build --target test $(BACKEND)
 
 lint-backend:
 	@cd $(BACKEND) && unformatted="$$(gofmt -l .)" && \
