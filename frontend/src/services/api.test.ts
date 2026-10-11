@@ -116,6 +116,15 @@ describe('calculate', () => {
     await expect(calculate({ operation: 'add', a: 1, b: 2 })).rejects.toBe(abort)
   })
 
+  it('rethrows an abort that happens while reading the body', async () => {
+    const abort = new DOMException('The operation was aborted.', 'AbortError')
+    const response = new Response('{}', { status: 200 })
+    vi.spyOn(response, 'json').mockRejectedValue(abort)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))
+
+    await expect(calculate({ operation: 'add', a: 1, b: 2 })).rejects.toBe(abort)
+  })
+
   it('recognizes an abort that is not a DOMException', async () => {
     // e.g. from a fetch polyfill or another realm.
     const abort = Object.assign(new Error('aborted'), { name: 'AbortError' })
