@@ -389,3 +389,26 @@ A plan was proposed: a Go build stage, an optional `-race` test stage and a dist
 Two changes came out of verification:
 - the JSON error pages, because nginx's own 413 was an HTML page;
 - the DNS re-resolution, because nginx caches the backend IP from startup.
+
+## 16. README and final checks
+
+> Lets work on the readme now and do last checkings
+
+**Outcome:** `README.md` was written from the actual code and configuration. It covers:
+- quick start with Docker;
+- local Go and Node setup;
+- the API reference, with every status code and error message;
+- 14 cURL examples with their expected output;
+- the calculator's keys and keyboard shortcuts;
+- test and coverage commands;
+- design decisions for the backend, frontend and Docker;
+- assumptions and the project layout.
+
+**Checks:**
+- **cURL examples:** a script ran every README example exactly as written, with only the ports swapped for the Docker stack on 18080/13000. It compared status and body against the README's `# <status> <body>` lines: 14/14 match.
+- **Health check:** `docker compose exec backend /api -healthcheck` fails in Git Bash, which rewrites `/api` into a Windows path. The README now documents the `MSYS_NO_PATHCONV=1` workaround, which was verified.
+- **Coverage claim:** checked before stating it. 9 frontend files are fully covered (100% statements and branches), and the 1 skipped file is type-only.
+- **Definition of done:**
+  - Backend: gofmt and go vet are clean. `go test` passes, with `internal/calculator` at 100% and `internal/handler` at 98.2%. `-race` passes in the Docker test stage, forced with `--no-cache-filter`.
+  - Frontend: tsc, ESLint and the build are clean, and 206 tests pass.
+  - Docker: the compose stack is healthy, and the UI and `/api` proxy work.
