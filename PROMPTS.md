@@ -334,3 +334,25 @@ The subagent got the commit range, the backend contract and the intentional desi
 - Added `@vitest/coverage-v8@5.0.3` as a dev dependency, pinned to the installed vitest version, which it requires as a peer.
 - `npm run test:coverage` gives 98.7% statements, 98.5% branches, and 100% of functions and lines for `hooks/` and `services/`.
 - The pending root `package.json`, `CLAUDE.md` and `PROMPTS.md` edits were committed separately.
+
+## 14. Second frontend review and final adjustments (code-reviewer subagent)
+
+> Now lets review everything again using the sub agent and do the final adjustments
+
+The subagent was asked to verify the first round of fixes, look for regressions, check that aria-disabled keys leak nothing (mouse or keyboard), check the Enter-on-button rule, look for tests that pass for the wrong reason, and confirm the coverage provider's version matches vitest.
+
+**Review outcome:** no spec or guardrail violations, all first-round fixes confirmed correct, no wrong-reason tests, and the coverage provider matches vitest. Findings:
+- **Medium:** Chrome and Firefox focus a button on mouse click, so clicking `2 + 3` and then pressing Enter gave 33 instead of 5.
+- **Low:** two abort branches had no test.
+
+**Fixes:**
+- `fix(frontend): keep mouse clicks from focusing keys so Enter means equals`
+  - Keys call `preventDefault` on `mousedown`; Tab focus is unaffected.
+  - The new test failed first. The old focused-digit test now focuses the key the way the keyboard would.
+- `refactor(frontend): drop unreachable abort guard and test the stale-request path`
+  - The hook's `signal.aborted` guard was unreachable: after AC the reducer drops the result as stale, and after unmount `dispatch` does nothing. Any test of it would have passed for the wrong reason, so it was removed.
+  - A new test covers a rejected, aborted request after AC. It was checked by disabling the reducer's stale-id check: the test failed as intended.
+- `test(frontend): cover an abort while reading the response body`
+  - Checked by deleting the rethrow: the test failed as intended.
+
+Final state: 206 tests, coverage of `hooks/` and `services/` at 100% statements, branches, functions and lines, and typecheck, lint and build clean.
